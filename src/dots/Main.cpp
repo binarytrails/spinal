@@ -9,6 +9,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "Window.hpp"
 #include "Shader.hpp"
@@ -18,15 +19,49 @@ Window* window;
 Shader* shader;
 Camera* camera;
 
-std::string data_f = "data/five_y";
-
-std::vector<glm::vec3> vertices;
-std::vector<glm::vec3> vertices_i;
-
 GLuint vbo, vao, ebo;
 
+glm::mat4 model;
 glm::mat4 view;
 glm::mat4 projection;
+
+std::vector<glm::vec3> vertices;
+std::vector<GLint> vertices_i;
+
+std::string data_f = "data/five_y";
+GLfloat rotate_angle = 1 / 20;
+GLenum render_m = GL_POINTS;
+
+void rotate(const glm::vec3 spin)
+{
+    model = glm::rotate(model, spin.x, glm::vec3(1, 0, 0));
+    model = glm::rotate(model, spin.y, glm::vec3(0, 1, 0));
+    model = glm::rotate(model, spin.z, glm::vec3(0, 0, 1));
+}
+
+void gen_vertices_i()
+{
+    vertices_i.clear();
+
+    if (render_m == GL_POINTS)
+    {
+        for (uint8_t p = 0; p < vertices.size() - 1; p++)
+        {
+            vertices_i.push_back(p);
+            //printf("Adding point p%i\n", p);
+        }
+    }
+    else if (render_m == GL_LINES)
+    {
+        for (uint8_t p = 0; p < vertices.size() - 2; p++)
+        {
+            // edge
+            vertices_i.push_back(p);
+            vertices_i.push_back(p + 1);
+            //printf("Adding edge between p%i <-> p%i\n", p, p + 1);
+        }
+    }
+}
 
 // callbacks {
 
@@ -49,35 +84,45 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
     switch (key)
     {
         case GLFW_KEY_LEFT:
-            //mesh->rotate(glm::vec3(0, 1, 0));
+            rotate(glm::vec3(0, rotate_angle, 0));
             break;
 
         case  GLFW_KEY_RIGHT:
-            //mesh->rotate(glm::vec3(0, -1, 0));
+            rotate(glm::vec3(0, -1 * rotate_angle, 0));
             break;
 
         case GLFW_KEY_UP:
-            //mesh->rotate(glm::vec3(1, 0, 0));
+            rotate(glm::vec3(rotate_angle, 0, 0));
             break;
 
         case GLFW_KEY_DOWN:
-            //mesh->rotate(glm::vec3(-1, 0, 0));
+            rotate(glm::vec3(-1 * rotate_angle, 0, 0));
             break;
 
         case GLFW_KEY_W:
             camera->move_down();
             break;
-        
+
         case GLFW_KEY_S:
             camera->move_up();
             break;
-        
+
         case GLFW_KEY_A:
             camera->move_left();
             break;
-        
+
         case GLFW_KEY_D:
             camera->move_right();
+            break;
+
+        case GLFW_KEY_P:
+            render_m = GL_POINTS;
+            gen_vertices_i();
+            break;
+
+        case GLFW_KEY_L:
+            render_m = GL_LINES;
+            gen_vertices_i();
             break;
     }
 }
@@ -104,6 +149,8 @@ bool load_data_file()
     ifs >> n;
     printf("Found %i data points\n", n);
 
+    vertices.clear();
+
     for(unsigned short i = 0; i < n; i++)
     {
         ifs >> x >> y >> z;
@@ -113,11 +160,6 @@ bool load_data_file()
 
     ifs.close();
     return true;
-}
-
-void gen_vertices_i()
-{
-    // TODO
 }
 
 void init_buffers()
@@ -151,16 +193,30 @@ void init_buffers()
     glBindVertexArray(0);
 }
 
+void render()
+{
+    shader->use();
+
+    // locate in shaders gpu
+    GLint modelLoc = glGetUniformLocation(shader->programId, "model");
+    GLint viewLoc = glGetUniformLocation(shader->programId, "view");
+    GLint projLoc = glGetUniformLocation(shader->programId, "projection");
+
+    // send to shaders on gpu
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glBindVertexArray(vao);
+        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
+}
+
 void draw_loop()
 {
     while (!glfwWindowShouldClose(window->get()))
     {
         glfwPollEvents();
-
-        projection = glm::perspective(
-            45.0f,
-            (GLfloat) window->width() / (GLfloat) window->height(),
-            0.1f, 100.0f);
 
         // clear the colorbuffer
         glClearColor(255, 255, 255, 0); // background color
@@ -170,7 +226,12 @@ void draw_loop()
 
         view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -1.0f));
 
-        // TODO render
+        projection = glm::perspective(
+            45.0f,
+            (GLfloat) window->width() / (GLfloat) window->height(),
+            0.1f, 100.0f);
+
+        render();
 
         glfwSwapBuffers(window->get());
     }
@@ -194,19 +255,17 @@ int main(int argc, char *argv[])
     glEnable(GL_DEPTH_TEST);
 
     glViewport(0, 0, window->width(), window->height());
-    
+
+    shader = new Shader("shaders/default.vs", "shaders/default.fs");
+
  	if (!load_data_file())
     {
         std::cout << "Can't open data file '" << data_f << "'" << std::endl;
         return 1;
     }
-
     gen_vertices_i();
 
     init_buffers();
-
-    Shader shader("shaders/default.vs", "shaders/default.fs");
-    shader.use();
 
     draw_loop();
 
@@ -214,6 +273,7 @@ int main(int argc, char *argv[])
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
 
+    delete shader;
     delete camera;
     delete window;
 
