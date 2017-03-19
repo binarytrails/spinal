@@ -26,10 +26,10 @@ glm::mat4 view;
 glm::mat4 projection;
 
 std::vector<glm::vec3> vertices;
-std::vector<GLint> vertices_i;
+std::vector<GLushort> vertices_i;
 
 std::string data_f = "data/five_y";
-GLfloat rotate_angle = 1 / 20;
+GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m = GL_POINTS;
 
 void rotate(const glm::vec3 spin)
@@ -45,15 +45,14 @@ void gen_vertices_i()
 
     if (render_m == GL_POINTS)
     {
-        for (uint8_t p = 0; p < vertices.size() - 1; p++)
+        for (uint8_t p = 0; p < vertices.size(); p++)
         {
             vertices_i.push_back(p);
-            //printf("Adding point p%i\n", p);
         }
     }
     else if (render_m == GL_LINES)
     {
-        for (uint8_t p = 0; p < vertices.size() - 2; p++)
+        for (uint8_t p = 0; p < vertices.size() - 1; p++)
         {
             // edge
             vertices_i.push_back(p);
@@ -61,6 +60,15 @@ void gen_vertices_i()
             //printf("Adding edge between p%i <-> p%i\n", p, p + 1);
         }
     }
+}
+
+void upload()
+{
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     sizeof(GLushort) * vertices_i.size(),
+                     &vertices_i[0], GL_STATIC_DRAW);
 }
 
 // callbacks {
@@ -76,9 +84,26 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
 {
     //printf("keyboard: %i\n", key);
 
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    if (action == GLFW_PRESS)
     {
-        glfwSetWindowShouldClose(w, GL_TRUE);
+        switch (key)
+        {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(w, GL_TRUE);
+                break;
+
+            case GLFW_KEY_P:
+                render_m = GL_POINTS;
+                gen_vertices_i();
+                upload();
+                break;
+
+            case GLFW_KEY_L:
+                render_m = GL_LINES;
+                gen_vertices_i();
+                upload();
+                break;
+        }
     }
 
     switch (key)
@@ -87,8 +112,8 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
             rotate(glm::vec3(0, rotate_angle, 0));
             break;
 
-        case  GLFW_KEY_RIGHT:
-            rotate(glm::vec3(0, -1 * rotate_angle, 0));
+        case GLFW_KEY_RIGHT:
+            rotate(glm::vec3(0, -1.0f * rotate_angle, 0));
             break;
 
         case GLFW_KEY_UP:
@@ -96,7 +121,7 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
             break;
 
         case GLFW_KEY_DOWN:
-            rotate(glm::vec3(-1 * rotate_angle, 0, 0));
+            rotate(glm::vec3(-1.0f * rotate_angle, 0, 0));
             break;
 
         case GLFW_KEY_W:
@@ -113,16 +138,6 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
 
         case GLFW_KEY_D:
             camera->move_right();
-            break;
-
-        case GLFW_KEY_P:
-            render_m = GL_POINTS;
-            gen_vertices_i();
-            break;
-
-        case GLFW_KEY_L:
-            render_m = GL_LINES;
-            gen_vertices_i();
             break;
     }
 }
@@ -155,7 +170,7 @@ bool load_data_file()
     {
         ifs >> x >> y >> z;
         vertices.push_back(glm::vec3(x, y, z));
-        printf("(%f, %f, %f)\n", x, y, z);
+        printf("p%i (%f, %f, %f)\n", i, x, y, z);
     }
 
     ifs.close();
@@ -224,7 +239,7 @@ void draw_loop()
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -1.0f));
+        view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -3.0f));
 
         projection = glm::perspective(
             45.0f,
@@ -264,8 +279,8 @@ int main(int argc, char *argv[])
         return 1;
     }
     gen_vertices_i();
-
     init_buffers();
+    upload();
 
     draw_loop();
 

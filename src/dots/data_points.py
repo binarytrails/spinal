@@ -6,10 +6,10 @@
 
 def eq_spaced_points(n, p):
     """
-        Computes equally spaced point inside [-1, 1] range.
+        Computes equally spaced points inside [-1, 1] range.
 
         n - number of points
-        p - padding
+        p - padding in [0, 1] range
 
         Return points
     """
