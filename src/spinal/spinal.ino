@@ -18,7 +18,9 @@ extern "C" {
 }
 
 #define TCAADDR 0x70
-#define BNO_SAMPLERATE_MS (1000)
+
+uint8_t BNO_SWITCH_RATE_MS = 100;
+uint8_t BNO_SAMPLE_RATE_MS = 1000 - BNO_SWITCH_RATE_MS;
 
 // unique id = bno id on i2c multiplex
 Adafruit_BNO055 bno1 = Adafruit_BNO055(2);
@@ -81,7 +83,7 @@ void setup(void)
 {
     Serial.begin(9600);
 
-    find_bnos();
+    //find_bnos();
 
     for (uint8_t i = 0; i < 5; i++)
     {
@@ -127,7 +129,9 @@ void loop(void)
         Serial.write(&y[0]);
         Serial.write(&z[0]);
         Serial.write("$");
+
+        delay(BNO_SWITCH_RATE_MS);
     }
  
-    delay(BNO_SAMPLERATE_MS);
+    delay(BNO_SAMPLE_RATE_MS);
 }

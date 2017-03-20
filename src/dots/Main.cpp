@@ -11,6 +11,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <unistd.h> // sleep()
+#include <libserialport.h>
+
 #include "Window.hpp"
 #include "Shader.hpp"
 #include "Camera.hpp"
@@ -31,6 +34,12 @@ std::vector<GLushort> vertices_i;
 std::string data_f = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m = GL_POINTS;
+
+struct sp_port *serial_p;
+const char* serial_pn = "/dev/ttyUSB1";
+
+uint8_t sensor_turn = 0;
+std::string sensors_data[5];
 
 void rotate(const glm::vec3 spin)
 {
@@ -177,6 +186,120 @@ bool load_data_file()
     return true;
 }
 
+void find_serial_ports()
+{
+    struct sp_port **ports;
+
+    sp_list_ports(&ports);
+
+    for (uint8_t i = 0; ports[i]; i++)
+        printf("Found port: '%s'.\n", sp_get_port_name(ports[i]));
+
+    sp_free_port_list(ports);
+}
+
+const char* get_first_serial_port()
+{
+    char *name;
+    struct sp_port **ports;
+
+    sp_list_ports(&ports);
+        name = sp_get_port_name(ports[0]);
+    sp_free_port_list(ports);
+
+    return name;
+}
+
+bool init_spinal_serial()
+{
+    float buffer[5];
+
+    //serial_pn = get_first_serial_port();
+    printf("Opening port '%s' \n", serial_pn);
+
+    sp_return error = sp_get_port_by_name(serial_pn, &serial_p);
+
+    if (error != SP_OK)
+    {
+        printf("Error finding serial device\n");
+        return 0;
+    }
+
+    error = sp_open(serial_p, SP_MODE_READ);
+
+    if (error != SP_OK)
+    {
+        printf("Error opening serial device\n");
+        return 0;
+    }
+
+    sp_set_baudrate(serial_p, 9600);
+    return 1;
+}
+
+// exclusive substring without start and end
+std::string substr_ex(std::string start, std::string end, std::string str)
+{
+    unsigned first = str.find(start);
+    unsigned last = str.find(end);
+
+    return str.substr(first + start.length(), last - first - start.length());
+}
+
+void parse_spinal_serial(const std::string data)
+{
+    std::cout << "New sensor " << (int) sensor_turn <<
+                 " data: " << data << std::endl;
+
+    uint8_t id = std::stoi(substr_ex("bno", "x", data),
+                           nullptr, 10);
+
+    GLfloat x  = (GLfloat) std::stof(substr_ex("x", "y", data));
+    GLfloat y  = (GLfloat) std::stof(substr_ex("y", "z", data));
+    GLfloat z  = (GLfloat) std::stof(substr_ex("z", "$", data));
+
+    std::cout << "id: " << (int) id <<
+                 " x: " << x << " y: " << y << " z: " << z <<
+                 std::endl;
+
+    // TODO overwrite current & upload to gpu
+}
+
+void read_spinal_serial()
+{
+    int bytes_waiting = sp_input_waiting(serial_p);
+
+    if (bytes_waiting > 0)
+    {
+        //printf("Bytes waiting %i\n", bytes_waiting);
+        char byte_buff[512];
+        int byte_num = 0;
+
+        byte_num = sp_nonblocking_read(serial_p, byte_buff, 512);
+
+        for (uint8_t i = 0; i < byte_num; i++)
+        {
+            char c = byte_buff[i];
+
+            sensors_data[sensor_turn] += c;
+
+            if (c != '$')
+                continue;
+
+            // i.e bno1x00.00y11.11z22.22$
+            std::string data = sensors_data[sensor_turn];
+
+            if (data.length() > 2)
+                parse_spinal_serial(data);
+
+            sensors_data[sensor_turn] = "";
+            sensor_turn  = (sensor_turn + 1) % 5;
+        }
+    }
+
+    fflush(stdout);
+}
+
 void init_buffers()
 {
     glGenBuffers(1, &vbo);
@@ -210,6 +333,13 @@ void init_buffers()
 
 void render()
 {
+    view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -3.0f));
+
+    projection = glm::perspective(
+        45.0f,
+        (GLfloat) window->width() / (GLfloat) window->height(),
+        0.1f, 100.0f);
+
     shader->use();
 
     // locate in shaders gpu
@@ -239,12 +369,7 @@ void draw_loop()
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -3.0f));
-
-        projection = glm::perspective(
-            45.0f,
-            (GLfloat) window->width() / (GLfloat) window->height(),
-            0.1f, 100.0f);
+        read_spinal_serial();
 
         render();
 
@@ -282,7 +407,15 @@ int main(int argc, char *argv[])
     init_buffers();
     upload();
 
+    printf("Available serial ports:\n");
+    find_serial_ports();
+
+    if (!init_spinal_serial())
+        return 1;
+
     draw_loop();
+
+    sp_close(serial_p);
 
     glDeleteBuffers(1, &ebo);
     glDeleteVertexArrays(1, &vao);

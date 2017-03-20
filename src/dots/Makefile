@@ -4,7 +4,7 @@
 
 CXX=g++
 CXXFLAGS=-std=c++11 -g -Wall -Wextra -Wfatal-errors -pedantic \
-		-lGLEW -lGL -lX11 -lpthread -lXrandr -lXi \
+		-lGLEW -lGL -lX11 -lpthread -lXrandr -lXi -lserialport \
 		-I./
 
 GLFW_ARCH=-lglfw
