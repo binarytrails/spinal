@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/rotate_vector.hpp>
 
 #include <unistd.h> // sleep()
 #include <libserialport.h>
@@ -28,12 +29,15 @@ glm::mat4 model;
 glm::mat4 view;
 glm::mat4 projection;
 
+// from lowest to highest sensor
 std::vector<glm::vec3> vertices;
-std::vector<GLushort> vertices_i;
+std::vector<GLushort>  vertices_i;
+// x == roll; y == pitch; z == yaw
+std::vector<glm::vec3> vertices_r(5, glm::vec3(-1, -1, -1));
 
-std::string data_f = "data/five_y";
+std::string data_f   = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
-GLenum render_m = GL_POINTS;
+GLenum render_m      = GL_POINTS;
 
 struct sp_port *serial_p;
 const char* serial_pn = "/dev/ttyUSB1";
@@ -41,11 +45,19 @@ const char* serial_pn = "/dev/ttyUSB1";
 uint8_t sensor_turn = 0;
 std::string sensors_data[5];
 
-void rotate(const glm::vec3 spin)
+void rotate_model(const glm::vec3 spin)
 {
     model = glm::rotate(model, spin.x, glm::vec3(1, 0, 0));
     model = glm::rotate(model, spin.y, glm::vec3(0, 1, 0));
     model = glm::rotate(model, spin.z, glm::vec3(0, 0, 1));
+}
+
+glm::vec3 rotate_point(glm::vec3 point, const glm::vec3 spin)
+{
+    point = glm::rotateX(point, spin.x);
+    point = glm::rotateY(point, spin.y);
+    point = glm::rotateZ(point, spin.z);
+    return point;
 }
 
 void gen_vertices_i()
@@ -73,6 +85,16 @@ void gen_vertices_i()
 
 void upload()
 {
+    // vertices
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+        glBufferData(GL_ARRAY_BUFFER,
+                     sizeof(glm::vec3) * vertices.size(),
+                     &vertices[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // indices
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 
         glBufferData(GL_ELEMENT_ARRAY_BUFFER,
@@ -118,19 +140,19 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
     switch (key)
     {
         case GLFW_KEY_LEFT:
-            rotate(glm::vec3(0, rotate_angle, 0));
+            rotate_model(glm::vec3(0, rotate_angle, 0));
             break;
 
         case GLFW_KEY_RIGHT:
-            rotate(glm::vec3(0, -1.0f * rotate_angle, 0));
+            rotate_model(glm::vec3(0, -1.0f * rotate_angle, 0));
             break;
 
         case GLFW_KEY_UP:
-            rotate(glm::vec3(rotate_angle, 0, 0));
+            rotate_model(glm::vec3(rotate_angle, 0, 0));
             break;
 
         case GLFW_KEY_DOWN:
-            rotate(glm::vec3(-1.0f * rotate_angle, 0, 0));
+            rotate_model(glm::vec3(-1.0f * rotate_angle, 0, 0));
             break;
 
         case GLFW_KEY_W:
@@ -237,6 +259,27 @@ bool init_spinal_serial()
     return 1;
 }
 
+glm::mat4 compute_euler_angles(const glm::vec3 spin)
+{
+    float roll  = spin.x;
+    float pitch = spin.y;
+    float yaw   = spin.z;
+
+    float c1 = cos(glm::radians(roll));
+    float s1 = sin(glm::radians(roll));
+    float c2 = cos(glm::radians(pitch)); // intrinsic rotation
+    float s2 = sin(glm::radians(pitch));
+    float c3 = cos(glm::radians(yaw));
+    float s3 = sin(glm::radians(yaw));
+
+    return glm::mat4(
+        c2 * c3,    s1 * s3 + c1 * c3 * s2,     c3 * s1 * s2 - c1 * s3, 0,
+        -s2,        c1 * c2,                    c2 * s1,                0,
+        c2 * s3,    c1 * s2 * s3 - c3 * s1,     c1 * c3 + s1 * s2 * s3, 0,
+        0,          0,                          0,                      1
+    );
+}
+
 // exclusive substring without start and end
 std::string substr_ex(std::string start, std::string end, std::string str)
 {
@@ -248,21 +291,37 @@ std::string substr_ex(std::string start, std::string end, std::string str)
 
 void parse_spinal_serial(const std::string data)
 {
-    std::cout << "New sensor " << (int) sensor_turn <<
-                 " data: " << data << std::endl;
+    //std::cout << "New sensor " << (int) sensor_turn <<
+    //             " data: " << data << std::endl;
 
     uint8_t id = std::stoi(substr_ex("bno", "x", data),
                            nullptr, 10);
 
-    GLfloat x  = (GLfloat) std::stof(substr_ex("x", "y", data));
-    GLfloat y  = (GLfloat) std::stof(substr_ex("y", "z", data));
-    GLfloat z  = (GLfloat) std::stof(substr_ex("z", "$", data));
+    glm::vec3 euler_angles(
+        (GLfloat) std::stof(substr_ex("x", "y", data)),
+        (GLfloat) std::stof(substr_ex("y", "z", data)),
+        (GLfloat) std::stof(substr_ex("z", "$", data))
+    );
 
     std::cout << "id: " << (int) id <<
-                 " x: " << x << " y: " << y << " z: " << z <<
-                 std::endl;
+                 " x: " << euler_angles.x <<
+                 " y: " << euler_angles.y <<
+                 " z: " << euler_angles.z << std::endl;
 
-    // TODO overwrite current & upload to gpu
+    // has previous rotation (calibration)
+    if (vertices_r.at(id) != glm::vec3(-1, -1, -1))
+    {
+        // spin = current - last
+        glm::vec3 spin = euler_angles - vertices_r.at(id);
+
+        glm::mat4 euler_rotation = compute_euler_angles(spin);
+
+        // apply spin
+        vertices[id] = glm::vec4(vertices[id], 0.0f) * euler_rotation;
+
+        upload();
+    }
+    vertices_r[id] = euler_angles;
 }
 
 void read_spinal_serial()
@@ -333,7 +392,7 @@ void init_buffers()
 
 void render()
 {
-    view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -3.0f));
+    view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -2.0f));
 
     projection = glm::perspective(
         45.0f,

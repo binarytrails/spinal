@@ -23,13 +23,14 @@ uint8_t BNO_SWITCH_RATE_MS = 100;
 uint8_t BNO_SAMPLE_RATE_MS = 1000 - BNO_SWITCH_RATE_MS;
 
 // unique id = bno id on i2c multiplex
+Adafruit_BNO055 bno5 = Adafruit_BNO055(7); // highest
 Adafruit_BNO055 bno1 = Adafruit_BNO055(2);
 Adafruit_BNO055 bno2 = Adafruit_BNO055(3);
 Adafruit_BNO055 bno3 = Adafruit_BNO055(4);
-Adafruit_BNO055 bno4 = Adafruit_BNO055(6);
-Adafruit_BNO055 bno5 = Adafruit_BNO055(7);
+Adafruit_BNO055 bno4 = Adafruit_BNO055(6); // lowest
 
-Adafruit_BNO055 *bno_ids[5] = {&bno1, &bno2, &bno3, &bno4, &bno5};
+// lowest to highest transmission ids order
+Adafruit_BNO055 *bno_ids[5] = {&bno4, &bno3, &bno2, &bno1, &bno5};
 
 void tcaselect(uint8_t i)
 {
