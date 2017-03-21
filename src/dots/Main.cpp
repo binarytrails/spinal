@@ -40,7 +40,7 @@ GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m      = GL_POINTS;
 
 struct sp_port *serial_p;
-const char* serial_pn = "/dev/ttyUSB1";
+const char* serial_url = "/dev/ttyUSB0";
 
 uint8_t sensor_turn = 0;
 std::string sensors_data[5];
@@ -236,10 +236,10 @@ bool init_spinal_serial()
 {
     float buffer[5];
 
-    //serial_pn = get_first_serial_port();
-    printf("Opening port '%s' \n", serial_pn);
+    //serial_url = get_first_serial_port();
+    printf("Opening port '%s' \n", serial_url);
 
-    sp_return error = sp_get_port_by_name(serial_pn, &serial_p);
+    sp_return error = sp_get_port_by_name(serial_url, &serial_p);
 
     if (error != SP_OK)
     {
@@ -423,7 +423,7 @@ void draw_loop()
         glfwPollEvents();
 
         // clear the colorbuffer
-        glClearColor(255, 255, 255, 0); // background color
+        glClearColor(0, 0, 0, 0); // background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -438,6 +438,9 @@ void draw_loop()
 
 int main(int argc, char *argv[])
 {
+    if (argc > 1)
+        serial_url = argv[1];
+
     // init
 
     camera = new Camera();
