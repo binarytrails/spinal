@@ -1,5 +1,14 @@
 # Spinal
 
+## Roadmap
+
+- ~~Visualization~~
+- ~~Serial communication~~
+- ~~Real-time eulier angles~~
+- Calibrations
+- Spine reconstruction
+- User interactions
+
 ## Dots
 
 Real-time OpenGL visualization
