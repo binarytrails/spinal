@@ -7,6 +7,8 @@
 - ~~Real-time eulier angles~~
 - Calibrations
 - Spine reconstruction
+    - ~~Artificial using Catmull-Rom Spline~~
+    - Real based on mathematical model
 - User interactions
 
 ## Dots

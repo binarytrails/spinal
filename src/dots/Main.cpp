@@ -1,6 +1,10 @@
 /*
  * @file
  * @author Vsevolod (Seva) Ivanov
+ *
+ * FIXME
+ *  (1) Spine IMU sensors order shift
+ *  (2) Fast serial communication
 */
 
 #include <stdio.h>
@@ -44,6 +48,76 @@ const char* serial_url = "/dev/ttyUSB0";
 
 int in_turn = 0;
 std::string in_data[5];
+
+bool compute_catmullrom_spline()
+{
+    if (vertices_r.size() < 5)
+        return false;
+
+    std::vector<glm::vec3> vbuffer1 = vertices_r;
+
+    if (vbuffer1.size() < 4)
+    {
+        printf("A minimum of 4 points is requiered "
+               "to generate a Catmull-Rom Spline.\n");
+        return false;
+    }
+
+    printf("Generating Catmull-Rom Spline..\n");
+
+    GLfloat s = 0.5f;
+
+    glm::mat4 basis(
+        -s,     2-s,    s-2,    s,      // [0][0]-[0][3]
+        2*s,    s-3,    3-2*s,  -s,
+        -s,     0,      s,      0,
+        0,      1,      0,      0
+    );
+
+    float tmax = 10.0f;
+    float step = 1.0f / tmax;
+
+    // add artificial before first
+    vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
+    // add artificial after last
+    vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
+
+    std::vector<glm::vec3> vbuffer2;
+
+    // for n segments with n+3 control points
+    for (uint16_t i = 1; i < vbuffer1.size() - 2; i++)
+    {
+        // brute force (for n segments)
+        for (float t = 0.0f; t < 1.0f - step; t += step)
+        {
+            glm::vec3 p0 = vbuffer1.at(i - 1);
+            glm::vec3 p1 = vbuffer1.at(i);
+            glm::vec3 p2 = vbuffer1.at(i + 1);
+            glm::vec3 p3 = vbuffer1.at(i + 2);
+
+            glm::vec4 params = glm::vec4(t*t*t, t*t, t, 1.0f);
+
+            glm::mat4x3 control(p0, p1, p2, p3);
+
+            /* operations order:
+             *      mat4 * vec4 -> vec4 is column vector
+             *      vec4 * mat4 -> vec4 is row vector
+             */
+
+            glm::vec3 pn = params * (
+                    glm::transpose(basis) * glm::transpose(control)
+            );
+            //printf("\n p_%i t=%f (%f, %f, %f)\n\n", i, t, pn.x, pn.y, pn.z);
+
+            vbuffer2.push_back(pn);
+        }
+    }
+
+    vertices.clear();
+    vertices = vbuffer2;
+
+    return true;
+}
 
 void rotate_model(const glm::vec3 spin)
 {
@@ -234,8 +308,6 @@ const char* get_first_serial_port()
 
 bool init_spinal_serial()
 {
-    float buffer[5];
-
     //serial_url = get_first_serial_port();
     printf("Opening port '%s' \n", serial_url);
 
@@ -280,6 +352,7 @@ glm::mat4 compute_euler_angles(const glm::vec3 spin)
     );
 }
 
+// FIXME 2 fast communication: make robust and disregard too short results
 // exclusive substring without start and end
 std::string substr_ex(std::string start, std::string end, std::string str)
 {
@@ -342,11 +415,17 @@ void read_spinal_serial()
             if (c != '$')
                 continue;
 
+            // FIXME 1 IMU sensors order shift
             // i.e bno1x00.00y11.11z22.22$
             std::string data(in_data[in_turn]);
             std::cout << "New segment: " << data << std::endl;
 
             parse_spinal_serial(data);
+
+            /*
+            if (in_turn == 4)
+                compute_catmullrom_spline();
+            */
 
             in_data[in_turn] = "";
             in_turn  = (in_turn + 1) % 5;
@@ -388,6 +467,19 @@ void init_buffers()
     glBindVertexArray(0);
 }
 
+void upload_vx()
+{
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER,
+                     sizeof(glm::vec3) * vertices.size(),
+                     &vertices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glBindVertexArray(vao);
+        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
+}
+
 void render()
 {
     view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -2.0f));
@@ -408,10 +500,6 @@ void render()
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-    glBindVertexArray(vao);
-        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
-    glBindVertexArray(0);
 }
 
 void draw_loop()
@@ -427,8 +515,8 @@ void draw_loop()
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         read_spinal_serial();
-
         render();
+        upload_vx();
 
         glfwSwapBuffers(window->get());
     }

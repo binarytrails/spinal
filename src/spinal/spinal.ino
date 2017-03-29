@@ -20,7 +20,7 @@ extern "C" {
 #define TCAADDR 0x70
 
 int BNO_SWITCH_RATE_MS = 100;
-int BNO_SAMPLE_RATE_MS = 1000 - BNO_SWITCH_RATE_MS;
+int BNO_SAMPLE_RATE_MS = 100 - BNO_SWITCH_RATE_MS;
 
 // unique id = bno id on i2c multiplex
 Adafruit_BNO055 bno7 = Adafruit_BNO055(7); // highest
