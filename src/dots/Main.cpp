@@ -24,6 +24,12 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 
+#define RESET   "\033[0m"
+#define BLACK   "\033[30m"
+#define RED     "\033[31m"
+
+const glm::vec3 ERROR_VEC3 = glm::vec3(-1, -1, -1);
+
 Window* window;
 Shader* shader;
 Camera* camera;
@@ -38,14 +44,16 @@ glm::mat4 projection;
 std::vector<glm::vec3> vertices;
 std::vector<GLushort>  vertices_i;
 // x == roll; y == pitch; z == yaw
-std::vector<glm::vec3> vertices_r(5, glm::vec3(-1, -1, -1));
+std::vector<glm::vec3> vertices_r(5, ERROR_VEC3);
 
 std::string data_f   = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m      = GL_POINTS;
 
 struct sp_port *serial_p;
+// can be overwritten with arg1 e.g. ./run.sh /dev/ttyUSB1
 const char* serial_url = "/dev/ttyUSB0";
+unsigned int SERIAL_TIMEOUT_MS = 3000;
 
 int in_turn = 0;
 std::string in_data[5];
@@ -357,17 +365,37 @@ glm::mat4 compute_euler_angles(const glm::vec3 spin)
 // exclusive substring without start and end
 std::string substr_ex(std::string start, std::string end, std::string str)
 {
-    unsigned first = str.find(start);
-    unsigned last = str.find(end);
+    std::string r;
+    try
+    {
+        unsigned first = str.find(start);
+        unsigned last = str.find(end);
 
-    return str.substr(first + start.length(), last - first - start.length());
+        r = str.substr(first + start.length(), last - first - start.length());
+    }
+    catch (const std::out_of_range& e)
+    {
+        fprintf(stderr, RED "Exception std::out_of_range in substr_ex(..)\n"
+                            "Returning '%s'\n" RESET, r.c_str());
+    }
+    return r;
 }
 
-void parse_spinal_serial(const std::string data)
+bool parse_spinal_serial(const std::string data)
 {
-    int id = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
+    int id = -1;
+    glm::vec3 euler_angles = ERROR_VEC3;
 
-    glm::vec3 euler_angles(
+    try
+    {
+        id = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return false;
+    }
+
+    euler_angles = glm::vec3(
         (GLfloat) std::stof(substr_ex("x", "y", data)),
         (GLfloat) std::stof(substr_ex("y", "z", data)),
         (GLfloat) std::stof(substr_ex("z", "$", data))
@@ -378,8 +406,14 @@ void parse_spinal_serial(const std::string data)
                  " y: " << euler_angles.y <<
                  " z: " << euler_angles.z << std::endl;
 
+    if (id == -1 || euler_angles == ERROR_VEC3)
+    {
+        fprintf(stderr, RED "ID or euler_angles aren't extracted\n" RESET);
+        return false;
+    }
+
     // has previous rotation (initialized)
-    if (vertices_r.at(id) != glm::vec3(-1, -1, -1))
+    if (vertices_r.at(id) != ERROR_VEC3)
     {
         // spin = current - last
         glm::vec3 spin = euler_angles - vertices_r.at(id);
@@ -393,6 +427,8 @@ void parse_spinal_serial(const std::string data)
     }
     // else initialize
     vertices_r.at(id) = euler_angles;
+
+    return true;
 }
 
 void read_spinal_serial()
@@ -405,7 +441,9 @@ void read_spinal_serial()
         char byte_buff[512];
         int byte_num = 0;
 
+        //FIXME 1 nonblock mutex
         byte_num = sp_nonblocking_read(serial_p, byte_buff, 512);
+        //byte_num = sp_blocking_read(serial_p, byte_buff, 512, SERIAL_TIMEOUT_MS);
 
         for (int i = 0; i < byte_num; i++)
         {
@@ -423,17 +461,13 @@ void read_spinal_serial()
 
             parse_spinal_serial(data);
 
-            /*
-            if (in_turn == 4)
-                compute_catmullrom_spline();
-            */
+            //compute_catmullrom_spline();
 
             in_data[in_turn] = "";
             in_turn  = (in_turn + 1) % 5;
             break;
         }
     }
-
     fflush(stdout);
 }
 
