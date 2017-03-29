@@ -19,18 +19,18 @@ extern "C" {
 
 #define TCAADDR 0x70
 
-uint8_t BNO_SWITCH_RATE_MS = 100;
-uint8_t BNO_SAMPLE_RATE_MS = 1000 - BNO_SWITCH_RATE_MS;
+int BNO_SWITCH_RATE_MS = 100;
+int BNO_SAMPLE_RATE_MS = 1000 - BNO_SWITCH_RATE_MS;
 
 // unique id = bno id on i2c multiplex
-Adafruit_BNO055 bno5 = Adafruit_BNO055(7); // highest
-Adafruit_BNO055 bno1 = Adafruit_BNO055(2);
-Adafruit_BNO055 bno2 = Adafruit_BNO055(3);
-Adafruit_BNO055 bno3 = Adafruit_BNO055(4);
-Adafruit_BNO055 bno4 = Adafruit_BNO055(6); // lowest
+Adafruit_BNO055 bno7 = Adafruit_BNO055(7); // highest
+Adafruit_BNO055 bno2 = Adafruit_BNO055(2);
+Adafruit_BNO055 bno3 = Adafruit_BNO055(3);
+Adafruit_BNO055 bno4 = Adafruit_BNO055(4);
+Adafruit_BNO055 bno6 = Adafruit_BNO055(6); // lowest
 
 // lowest to highest transmission ids order
-Adafruit_BNO055 *bno_ids[5] = {&bno4, &bno3, &bno2, &bno1, &bno5};
+Adafruit_BNO055 *bno_ids[5] = {&bno6, &bno4, &bno3, &bno2, &bno7};
 
 void tcaselect(uint8_t i)
 {
@@ -51,7 +51,7 @@ void find_bnos()
         tcaselect(t);
         Serial.print("TCA port #"); Serial.println(t);
 
-        for (uint8_t addr = 0; addr<=127; addr++)
+        for (int addr = 0; addr<=127; addr++)
         {
             if (addr == TCAADDR)
                 continue;
@@ -107,7 +107,7 @@ void loop(void)
     sensor_t bno;
     sensors_event_t event;
     
-    for (uint8_t i = 0; i < 5; i++)
+    for (int i = 0; i < 5; i++)
     {
         bno_ids[i]->getSensor(&bno);
         bno_ids[i]->getEvent(&event);
@@ -118,18 +118,18 @@ void loop(void)
         String x = "x",
                y = "y",
                z = "z";
+        
+        /* double -> char conversion
+         *      with width of 2 and
+         *      a precision of 4 (number of digits after the dicimal sign)
+        */
+        x.concat(dtostrf(event.orientation.x, 2, 4, byte_buff));
+        y.concat(dtostrf(event.orientation.y, 2, 4, byte_buff));
+        z.concat(dtostrf(event.orientation.z, 2, 4, byte_buff));
 
-        x.concat(dtostrf(event.orientation.x, 2, 2, byte_buff));
-        y.concat(dtostrf(event.orientation.y, 2, 2, byte_buff));
-        z.concat(dtostrf(event.orientation.z, 2, 2, byte_buff));
+        String segment = "bno" + String(i, DEC) + x + y + z + "$\n";
 
-        String bno_id = "bno" + String(i, DEC);
-
-        Serial.write(&bno_id[0]);
-        Serial.write(&x[0]);
-        Serial.write(&y[0]);
-        Serial.write(&z[0]);
-        Serial.write("$");
+        Serial.write(&segment[0]);
 
         delay(BNO_SWITCH_RATE_MS);
     }

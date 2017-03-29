@@ -42,8 +42,8 @@ GLenum render_m      = GL_POINTS;
 struct sp_port *serial_p;
 const char* serial_url = "/dev/ttyUSB0";
 
-uint8_t sensor_turn = 0;
-std::string sensors_data[5];
+int in_turn = 0;
+std::string in_data[5];
 
 void rotate_model(const glm::vec3 spin)
 {
@@ -66,14 +66,14 @@ void gen_vertices_i()
 
     if (render_m == GL_POINTS)
     {
-        for (uint8_t p = 0; p < vertices.size(); p++)
+        for (int p = 0; p < vertices.size(); p++)
         {
             vertices_i.push_back(p);
         }
     }
     else if (render_m == GL_LINES)
     {
-        for (uint8_t p = 0; p < vertices.size() - 1; p++)
+        for (int p = 0; p < vertices.size() - 1; p++)
         {
             // edge
             vertices_i.push_back(p);
@@ -214,7 +214,7 @@ void find_serial_ports()
 
     sp_list_ports(&ports);
 
-    for (uint8_t i = 0; ports[i]; i++)
+    for (int i = 0; ports[i]; i++)
         printf("Found port: '%s'.\n", sp_get_port_name(ports[i]));
 
     sp_free_port_list(ports);
@@ -291,11 +291,7 @@ std::string substr_ex(std::string start, std::string end, std::string str)
 
 void parse_spinal_serial(const std::string data)
 {
-    //std::cout << "New sensor " << (int) sensor_turn <<
-    //             " data: " << data << std::endl;
-
-    uint8_t id = std::stoi(substr_ex("bno", "x", data),
-                           nullptr, 10);
+    int id = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
 
     glm::vec3 euler_angles(
         (GLfloat) std::stof(substr_ex("x", "y", data)),
@@ -303,12 +299,12 @@ void parse_spinal_serial(const std::string data)
         (GLfloat) std::stof(substr_ex("z", "$", data))
     );
 
-    std::cout << "id: " << (int) id <<
+    std::cout << "id: " << id <<
                  " x: " << euler_angles.x <<
                  " y: " << euler_angles.y <<
                  " z: " << euler_angles.z << std::endl;
 
-    // has previous rotation (calibration)
+    // has previous rotation (initialized)
     if (vertices_r.at(id) != glm::vec3(-1, -1, -1))
     {
         // spin = current - last
@@ -317,11 +313,12 @@ void parse_spinal_serial(const std::string data)
         glm::mat4 euler_rotation = compute_euler_angles(spin);
 
         // apply spin
-        vertices[id] = glm::vec4(vertices[id], 0.0f) * euler_rotation;
+        vertices.at(id) = glm::vec4(vertices.at(id), 0.0f) * euler_rotation;
 
         upload();
     }
-    vertices_r[id] = euler_angles;
+    // else initialize
+    vertices_r.at(id) = euler_angles;
 }
 
 void read_spinal_serial()
@@ -336,23 +333,24 @@ void read_spinal_serial()
 
         byte_num = sp_nonblocking_read(serial_p, byte_buff, 512);
 
-        for (uint8_t i = 0; i < byte_num; i++)
+        for (int i = 0; i < byte_num; i++)
         {
             char c = byte_buff[i];
 
-            sensors_data[sensor_turn] += c;
+            in_data[in_turn] += c;
 
             if (c != '$')
                 continue;
 
             // i.e bno1x00.00y11.11z22.22$
-            std::string data = sensors_data[sensor_turn];
+            std::string data(in_data[in_turn]);
+            std::cout << "New segment: " << data << std::endl;
 
-            if (data.length() > 2)
-                parse_spinal_serial(data);
+            parse_spinal_serial(data);
 
-            sensors_data[sensor_turn] = "";
-            sensor_turn  = (sensor_turn + 1) % 5;
+            in_data[in_turn] = "";
+            in_turn  = (in_turn + 1) % 5;
+            break;
         }
     }
 
