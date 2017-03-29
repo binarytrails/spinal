@@ -166,23 +166,19 @@ void gen_vertices_i()
     }
 }
 
-void upload()
+void upload_to_gpu()
 {
     // vertices
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
         glBufferData(GL_ARRAY_BUFFER,
                      sizeof(glm::vec3) * vertices.size(),
-                     &vertices[0], GL_STATIC_DRAW);
-
+                     &vertices[0], GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // indices
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                     sizeof(GLushort) * vertices_i.size(),
-                     &vertices_i[0], GL_STATIC_DRAW);
+    glBindVertexArray(vao);
+        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
 }
 
 // callbacks {
@@ -209,13 +205,13 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
             case GLFW_KEY_P:
                 render_m = GL_POINTS;
                 gen_vertices_i();
-                upload();
+                upload_to_gpu();
                 break;
 
             case GLFW_KEY_L:
                 render_m = GL_LINES;
                 gen_vertices_i();
-                upload();
+                upload_to_gpu();
                 break;
         }
     }
@@ -423,7 +419,7 @@ bool parse_spinal_serial(const std::string data)
         // apply spin
         vertices.at(id) = glm::vec4(vertices.at(id), 0.0f) * euler_rotation;
 
-        upload();
+        upload_to_gpu();
     }
     // else initialize
     vertices_r.at(id) = euler_angles;
@@ -502,19 +498,6 @@ void init_buffers()
     glBindVertexArray(0);
 }
 
-void upload_vx()
-{
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER,
-                     sizeof(glm::vec3) * vertices.size(),
-                     &vertices[0], GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(vao);
-        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
-    glBindVertexArray(0);
-}
-
 void render()
 {
     view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -2.0f));
@@ -551,7 +534,7 @@ void draw_loop()
 
         read_spinal_serial();
         render();
-        upload_vx();
+        upload_to_gpu();
 
         glfwSwapBuffers(window->get());
     }
@@ -563,7 +546,6 @@ int main(int argc, char *argv[])
         serial_url = argv[1];
 
     // init
-
     camera = new Camera();
     window = new Window(800, 800, "Spinal");
 
@@ -588,7 +570,7 @@ int main(int argc, char *argv[])
     }
     gen_vertices_i();
     init_buffers();
-    upload();
+    upload_to_gpu();
 
     printf("Available serial ports:\n");
     find_serial_ports();
