@@ -1,6 +1,7 @@
 /*
  * @file
  * @author Vsevolod (Seva) Ivanov
+ * @copyright Copyright 2017 Vsevolod (Seva) Ivanov. All rights reserved.
  *
  * FIXME
  *  (1) Spine IMU sensors order shift
