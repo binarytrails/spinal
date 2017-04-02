@@ -24,9 +24,13 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 
-#define RESET   "\033[0m"
-#define BLACK   "\033[30m"
-#define RED     "\033[31m"
+#define RED     "\x1b[31m"
+#define GREEN   "\x1b[32m"
+#define YELLOW  "\x1b[33m"
+#define BLUE    "\x1b[34m"
+#define MAGENTA "\x1b[35m"
+#define CYAN    "\x1b[36m"
+#define RESET   "\x1b[0m"
 
 const glm::vec3 ERROR_VEC3 = glm::vec3(-1, -1, -1);
 
@@ -357,6 +361,28 @@ glm::mat4 compute_euler_angles(const glm::vec3 spin)
     );
 }
 
+void print_spinal_segment(const uint16_t id, const std::string segment)
+{
+    switch (id)
+    {
+        case 0:
+            printf(RED      "%s\n"   RESET, segment.c_str());
+            break;
+        case 1:
+            printf(GREEN    "%s\n"   RESET, segment.c_str());
+            break;
+        case 2:
+            printf(MAGENTA  "%s\n"   RESET, segment.c_str());
+            break;
+        case 3:
+            printf(YELLOW   "%s\n"   RESET, segment.c_str());
+            break;
+        case 4:
+            printf(CYAN     "%s\n\n" RESET, segment.c_str());
+            break;
+    }
+}
+
 // FIXME 2 fast communication: make robust and disregard too short results
 // exclusive substring without start and end
 std::string substr_ex(std::string start, std::string end, std::string str)
@@ -397,10 +423,12 @@ bool parse_spinal_serial(const std::string data)
         (GLfloat) std::stof(substr_ex("z", "$", data))
     );
 
+    /*
     std::cout << "id: " << id <<
                  " x: " << euler_angles.x <<
                  " y: " << euler_angles.y <<
                  " z: " << euler_angles.z << std::endl;
+    */
 
     if (id == -1 || euler_angles == ERROR_VEC3)
     {
@@ -411,6 +439,8 @@ bool parse_spinal_serial(const std::string data)
     // has previous rotation (initialized)
     if (vertices_r.at(id) != ERROR_VEC3)
     {
+        print_spinal_segment(id, data);
+
         // spin = current - last
         glm::vec3 spin = euler_angles - vertices_r.at(id);
 
@@ -419,7 +449,7 @@ bool parse_spinal_serial(const std::string data)
         // apply spin
         vertices.at(id) = glm::vec4(vertices.at(id), 0.0f) * euler_rotation;
 
-        upload_to_gpu();
+        //upload_to_gpu(); flickering if only upload
     }
     // else initialize
     vertices_r.at(id) = euler_angles;
@@ -453,14 +483,13 @@ void read_spinal_serial()
             // FIXME 1 IMU sensors order shift
             // i.e bno1x00.00y11.11z22.22$
             std::string data(in_data[in_turn]);
-            std::cout << "New segment: " << data << std::endl;
-
             parse_spinal_serial(data);
 
             //compute_catmullrom_spline();
 
             in_data[in_turn] = "";
             in_turn  = (in_turn + 1) % 5;
+            //sleep(10);
             break;
         }
     }
@@ -476,7 +505,7 @@ void init_buffers()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER,
                  sizeof(glm::vec3) * vertices.size(),
-                 &vertices[0], GL_STATIC_DRAW);
+                 &vertices[0], GL_STREAM_DRAW);
 
     // has to be before ebo bind
     glBindVertexArray(vao);
@@ -485,7 +514,7 @@ void init_buffers()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  sizeof(vertices_i) * vertices_i.size(),
                  &vertices_i[0],
-                 GL_STATIC_DRAW);
+                 GL_STREAM_DRAW);
 
     // enable vao -> vbo pointing
     glEnableVertexAttribArray(0);
@@ -533,8 +562,8 @@ void draw_loop()
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         read_spinal_serial();
-        render();
         upload_to_gpu();
+        render();
 
         glfwSwapBuffers(window->get());
     }
