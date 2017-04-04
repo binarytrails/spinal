@@ -19,19 +19,22 @@ extern "C" {
 }
 
 #define TCAADDR 0x70
+#define TCA_START 3
+#define NUMBER_OF_BNOS 5
 
 int BNO_SWITCH_RATE_MS = 100;
-int BNO_SAMPLE_RATE_MS = 100 - BNO_SWITCH_RATE_MS;
+int BNO_SAMPLE_RATE_MS = 0;
 
 // unique id = bno id on i2c multiplex
 Adafruit_BNO055 bno7 = Adafruit_BNO055(7); // highest
-Adafruit_BNO055 bno2 = Adafruit_BNO055(2);
-Adafruit_BNO055 bno3 = Adafruit_BNO055(3);
+Adafruit_BNO055 bno6 = Adafruit_BNO055(6);
+Adafruit_BNO055 bno5 = Adafruit_BNO055(5);
 Adafruit_BNO055 bno4 = Adafruit_BNO055(4);
-Adafruit_BNO055 bno6 = Adafruit_BNO055(6); // lowest
+Adafruit_BNO055 bno3 = Adafruit_BNO055(3); // lowest
 
 // lowest to highest transmission ids order
-Adafruit_BNO055 *bno_ids[5] = {&bno6, &bno4, &bno3, &bno2, &bno7};
+Adafruit_BNO055 *bno_ids[NUMBER_OF_BNOS] = {
+  &bno3,&bno4, &bno5, &bno6, &bno7};
 
 void tcaselect(uint8_t i)
 {
@@ -47,12 +50,13 @@ void find_bnos()
 {
     Wire.begin();
 
+    Serial.println();
     for (uint8_t t = 0; t < 8; t++)
     {
         tcaselect(t);
-        Serial.print("TCA port #"); Serial.println(t);
+        Serial.print("TCA port #"); Serial.print(t);
 
-        for (int addr = 0; addr<=127; addr++)
+        for (int addr = 0; addr <= 127; addr++)
         {
             if (addr == TCAADDR)
                 continue;
@@ -61,10 +65,41 @@ void find_bnos()
 
             if (!twi_writeTo(addr, &data, 0, 1, 1))
             {
-                Serial.print("Found I2C 0x");
-                Serial.println(addr,HEX);
+                Serial.print(" -> Found I2C 0x");
+                Serial.print(addr, HEX);
             }
         }
+        Serial.println();
+    }
+}
+
+void find_failed_bnos()
+{
+    for (uint8_t i = 0; i < NUMBER_OF_BNOS; i++)
+    {
+        sensor_t bno;
+        bno_ids[i]->getSensor(&bno);
+        
+        tcaselect(bno.sensor_id);
+
+        if (!bno_ids[i]->begin())
+            Serial.println(
+              "ERROR: Cannot detect bno" + String(i + 3));
+        //else
+          //sensor_details(&bno);
+    }
+}
+
+void bnos_details()
+{
+    for (uint8_t i = 0; i < NUMBER_OF_BNOS; i++)
+    {
+        sensor_t bno;
+        bno_ids[i]->getSensor(&bno);
+        tcaselect(bno.sensor_id);
+
+        if (bno_ids[i]->begin())
+          sensor_details(&bno);
     }
 }
 
@@ -84,23 +119,11 @@ void sensor_details(sensor_t *sensor)
 void setup(void)
 {
     Serial.begin(9600);
-
-    //find_bnos();
-
-    for (uint8_t i = 0; i < 5; i++)
-    {
-        sensor_t bno;
-        bno_ids[i]->getSensor(&bno);
-        
-        tcaselect(bno.sensor_id);
-
-        if (!bno_ids[i]->begin())
-        {
-            while (1)
-                Serial.println("Cannot detect bno" + char(i + 1));
-        }
-        //sensor_details(&bno);
-    }
+    
+    find_bnos();
+    Serial.println();
+    find_failed_bnos();
+    
 }
 
 void loop(void)
@@ -108,8 +131,8 @@ void loop(void)
     sensor_t bno;
     sensors_event_t event;
     
-    for (int i = 0; i < 5; i++)
-    {
+    for (int i = 0; i < NUMBER_OF_BNOS; i++)
+    {      
         bno_ids[i]->getSensor(&bno);
         bno_ids[i]->getEvent(&event);
         
