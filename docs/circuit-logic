@@ -1,0 +1,10 @@
+[BNO055 <--> Lilypad 328]
+
+VIN     -   VOUT    +       RED, ORANGE
+GND     -   GND     -       BLACK
+SDA     -   SDA     A4      WHITE, DGREY
+SCL     -   SCL     A5      BLUE
+
+
+[TCA9548A - I2C Multiplexer]
+...
