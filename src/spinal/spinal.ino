@@ -132,7 +132,7 @@ void loop(void)
     sensors_event_t event;
     
     for (int i = 0; i < NUMBER_OF_BNOS; i++)
-    {      
+    {
         bno_ids[i]->getSensor(&bno);
         bno_ids[i]->getEvent(&event);
         
@@ -151,7 +151,9 @@ void loop(void)
         y.concat(dtostrf(event.orientation.y, 2, 4, byte_buff));
         z.concat(dtostrf(event.orientation.z, 2, 4, byte_buff));
 
-        String segment = "bno" + String(i, DEC) + x + y + z + "$\n";
+        String segment = "bno" + String(i, DEC)
+                       + x + y + z + "end" +
+                       String(i, DEC) + "$\n";
 
         Serial.write(&segment[0]);
 

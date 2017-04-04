@@ -54,13 +54,11 @@ std::string data_f   = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m      = GL_POINTS;
 
+std::string serial_buff = "";
 struct sp_port *serial_p;
 // can be overwritten with arg1 e.g. ./run.sh /dev/ttyUSB1
 const char* serial_url = "/dev/ttyUSB0";
 unsigned int SERIAL_TIMEOUT_MS = 3000;
-
-int in_turn = 0;
-std::string in_data[5];
 
 bool compute_catmullrom_spline()
 {
@@ -405,24 +403,38 @@ std::string substr_ex(std::string start, std::string end, std::string str)
 
 bool parse_spinal_serial(const std::string data)
 {
-    int id = -1;
+    int sid = -1;
+    int eid = -1;
     glm::vec3 euler_angles = ERROR_VEC3;
 
     try
     {
-        id = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
+        sid = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
+        eid = std::stoi(substr_ex("end", "$", data), nullptr, 10);
     }
     catch (const std::invalid_argument& e)
     {
         return false;
     }
 
+    if (sid != eid)
+    {
+        fprintf(stderr, RED
+                "Corrupted segment with different start & end IDs\n" RESET);
+        return false;
+    }
+
     euler_angles = glm::vec3(
         (GLfloat) std::stof(substr_ex("x", "y", data)),
         (GLfloat) std::stof(substr_ex("y", "z", data)),
-        (GLfloat) std::stof(substr_ex("z", "$", data))
+        (GLfloat) std::stof(substr_ex("z", "end", data))
     );
 
+    if (sid == -1 || euler_angles == ERROR_VEC3)
+    {
+        fprintf(stderr, RED "ID or euler_angles aren't extracted\n" RESET);
+        return false;
+    }
     /*
     std::cout << "id: " << id <<
                  " x: " << euler_angles.x <<
@@ -430,29 +442,30 @@ bool parse_spinal_serial(const std::string data)
                  " z: " << euler_angles.z << std::endl;
     */
 
-    if (id == -1 || euler_angles == ERROR_VEC3)
-    {
-        fprintf(stderr, RED "ID or euler_angles aren't extracted\n" RESET);
-        return false;
-    }
+    /* FIXME (1): TEST 1 (isolation attempt)
+     *  Cpp:
+     *      weird results with visual shifting
+     *  Arduino:
+     */
+    //if (id == 4) return true;
 
     // has previous rotation (initialized)
-    if (vertices_r.at(id) != ERROR_VEC3)
+    if (vertices_r[sid] != ERROR_VEC3)
     {
-        print_spinal_segment(id, data);
+        print_spinal_segment(sid, data);
 
         // spin = current - last
-        glm::vec3 spin = euler_angles - vertices_r.at(id);
+        glm::vec3 spin = euler_angles - vertices_r[sid];
 
         glm::mat4 euler_rotation = compute_euler_angles(spin);
 
         // apply spin
-        vertices.at(id) = glm::vec4(vertices.at(id), 0.0f) * euler_rotation;
+        vertices[sid] = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
 
         //upload_to_gpu(); flickering if only upload
     }
     // else initialize
-    vertices_r.at(id) = euler_angles;
+    vertices_r[sid] = euler_angles;
 
     return true;
 }
@@ -474,22 +487,19 @@ void read_spinal_serial()
         for (int i = 0; i < byte_num; i++)
         {
             char c = byte_buff[i];
+            serial_buff += c;
+            //printf("Append to serial buffer: %s\n", serial_buff.c_str());
 
-            in_data[in_turn] += c;
-
-            if (c != '$')
-                continue;
+            if (c != '$') continue;
 
             // FIXME 1 IMU sensors order shift
             // i.e bno1x00.00y11.11z22.22$
-            std::string data(in_data[in_turn]);
-            parse_spinal_serial(data);
+            parse_spinal_serial(serial_buff);
 
             //compute_catmullrom_spline();
 
-            in_data[in_turn] = "";
-            in_turn  = (in_turn + 1) % 5;
-            //sleep(10);
+            //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
+            serial_buff = "";
             break;
         }
     }
