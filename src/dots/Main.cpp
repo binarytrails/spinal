@@ -54,6 +54,7 @@ std::string data_f   = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m      = GL_POINTS;
 
+#define TCA_OFFSET 3
 std::string serial_buff = "";
 struct sp_port *serial_p;
 // can be overwritten with arg1 e.g. ./run.sh /dev/ttyUSB1
@@ -170,6 +171,11 @@ void gen_vertices_i()
 
 void upload_to_gpu()
 {
+    printf("upload_to_gpu:\n");
+    for (const auto &v: vertices)
+        printf("v (%f, %f, %f)\n", v.x, v.y, v.z);
+    printf("\n");
+
     // vertices
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER,
@@ -278,6 +284,7 @@ bool load_data_file()
 
     vertices.clear();
 
+    // from lowest to highest
     for(unsigned short i = 0; i < n; i++)
     {
         ifs >> x >> y >> z;
@@ -409,8 +416,8 @@ bool parse_spinal_serial(const std::string data)
 
     try
     {
-        sid = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
-        eid = std::stoi(substr_ex("end", "$", data), nullptr, 10);
+        sid = std::stoi(substr_ex("bno", "x", data), nullptr, 10) - TCA_OFFSET;
+        eid = std::stoi(substr_ex("end", "$", data), nullptr, 10) - TCA_OFFSET;
     }
     catch (const std::invalid_argument& e)
     {
@@ -447,7 +454,7 @@ bool parse_spinal_serial(const std::string data)
      *      weird results with visual shifting
      *  Arduino:
      */
-    //if (id == 4) return true;
+    //if (sid != 1) return true;
 
     // has previous rotation (initialized)
     if (vertices_r[sid] != ERROR_VEC3)
@@ -462,9 +469,10 @@ bool parse_spinal_serial(const std::string data)
         // apply spin
         vertices[sid] = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
 
-        //upload_to_gpu(); flickering if only upload
+        // debugging purposes
+        upload_to_gpu();
     }
-    // else initialize
+    // save last rotation
     vertices_r[sid] = euler_angles;
 
     return true;
@@ -572,7 +580,7 @@ void draw_loop()
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         read_spinal_serial();
-        upload_to_gpu();
+        //upload_to_gpu();
         render();
 
         glfwSwapBuffers(window->get());

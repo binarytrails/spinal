@@ -1,4 +1,4 @@
-/*
+  /*
  * @file
  * @author Vsevolod (Seva) Ivanov
  * @copyright Copyright 2017 Vsevolod (Seva) Ivanov. All rights reserved.
@@ -19,7 +19,7 @@ extern "C" {
 }
 
 #define TCAADDR 0x70
-#define TCA_START 3
+#define TCA_OFFSET 3
 #define NUMBER_OF_BNOS 5
 
 int BNO_SWITCH_RATE_MS = 100;
@@ -34,7 +34,7 @@ Adafruit_BNO055 bno3 = Adafruit_BNO055(3); // lowest
 
 // lowest to highest transmission ids order
 Adafruit_BNO055 *bno_ids[NUMBER_OF_BNOS] = {
-  &bno3,&bno4, &bno5, &bno6, &bno7};
+  &bno3, &bno4, &bno5, &bno6, &bno7};
 
 void tcaselect(uint8_t i)
 {
@@ -128,37 +128,57 @@ void setup(void)
 
 void loop(void)
 {
-    sensor_t bno;
-    sensors_event_t event;
-    
     for (int i = 0; i < NUMBER_OF_BNOS; i++)
     {
-        bno_ids[i]->getSensor(&bno);
-        bno_ids[i]->getEvent(&event);
+        sensor_t bno;
         
+        bno_ids[i]->getSensor(&bno);
+          
         tcaselect(bno.sensor_id);
 
         char byte_buff[512];
-        String x = "x",
-               y = "y",
-               z = "z";
+        String id = String(bno.sensor_id, DEC),
+               x  = "x",
+               y  = "y",
+               z  = "z";
         
         /* double -> char conversion
          *      with width of 2 and
          *      a precision of 4 (number of digits after the dicimal sign)
         */
-        x.concat(dtostrf(event.orientation.x, 2, 4, byte_buff));
-        y.concat(dtostrf(event.orientation.y, 2, 4, byte_buff));
-        z.concat(dtostrf(event.orientation.z, 2, 4, byte_buff));
+        // FIXME error here not the right x, y, z are gotten
 
-        String segment = "bno" + String(i, DEC)
-                       + x + y + z + "end" +
-                       String(i, DEC) + "$\n";
+        imu::Vector<3> euler = bno_ids[i]->getVector(Adafruit_BNO055::VECTOR_EULER);
+        
+        x.concat(dtostrf(euler.x(), 2, 4, byte_buff));
+        y.concat(dtostrf(euler.y(), 2, 4, byte_buff));
+        z.concat(dtostrf(euler.z(), 2, 4, byte_buff));
+        
 
-        Serial.write(&segment[0]);
+        String segment = "bno" + id + x + y + z + "end" + id + "$\n";
+
+        
+        Serial.write(segment.c_str());
+    
+//        // debug
+        if (bno.sensor_id == 3 || bno.sensor_id == 4)
+        {
+
+//          char* array_id = String(i, DEC).c_str();
+//          Serial.write("bno"); Serial.write(array_id);
+//          Serial.write("x"); Serial.write(dtostrf(event.orientation.x, 2, 4, byte_buff));
+//          Serial.write("y"); Serial.write(dtostrf(event.orientation.y, 2, 4, byte_buff));
+//          Serial.write("z"); Serial.write(dtostrf(event.orientation.z, 2, 4, byte_buff));
+//          Serial.write(array_id); Serial.write("$\n");
+
+//            Serial.println(
+//              "id:" + String(bno.sensor_id, DEC) +
+//              " i:" + String(i, DEC) +
+//              " " + segment);
+        }
 
         delay(BNO_SWITCH_RATE_MS);
     }
- 
+    Serial.println("\n");
     delay(BNO_SAMPLE_RATE_MS);
 }
