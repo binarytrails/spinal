@@ -7,6 +7,7 @@ Spinal helps you to “hear” your spine condition. This wearable technology se
 - ~~Visualization~~
 - ~~Serial communication~~
 - ~~Real-time eulier angles~~
+- ~~Bluetooth integration~~
 - Calibrations
 - Spine reconstruction
     - ~~Artificial using Catmull-Rom Spline~~
@@ -33,6 +34,12 @@ Real-time OpenGL visualization
 ### Setup
 
 Tested on Arch Linux.
+
+Dependencies: ```glew glm glfw-x11 mesa-demos```
+
+Compile: ```cd src/dots/; make arch```
+
+Run it: ```./run.sh <serial-port>```
 
 #### USB
 
