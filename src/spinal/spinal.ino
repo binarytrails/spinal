@@ -18,6 +18,9 @@ extern "C" {
   #include "utility/twi.h"
 }
 
+#define BAUD_RATE_BLUETOOTH_MATE 115200
+#define BAUD_RATE 9600
+
 #define TCAADDR 0x70
 #define TCA_OFFSET 3
 #define NUMBER_OF_BNOS 5
@@ -118,7 +121,7 @@ void sensor_details(sensor_t *sensor)
 
 void setup(void)
 {
-    Serial.begin(9600);
+    Serial.begin(BAUD_RATE_BLUETOOTH_MATE);
     find_bnos();
     Serial.println();
     find_failed_bnos();
