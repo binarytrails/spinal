@@ -30,6 +30,70 @@ Real-time OpenGL visualization
     l           display lines
     p           display points
 
+### Setup
+
+Tested on Arch Linux.
+
+#### USB
+
+Logic: ```Spinal Serial over USB <-> Dots```
+
+    ./run /dev/ttyUSB0
+
+#### Bluetooth
+
+*Note: quickly test *Spinal* over bluetooth with an Android using ```S2 Terminal for Bluetooth``` application.*
+
+**Dots**:
+
+Logic: ```Spinal Serial over Bluetooth Mate <-> Laptop Bluetooth adapter <-> Dots```
+
+Install the dependencies:
+
+    pacman -S bluez
+
+In recent ```bluez-utils``` versions ```rfcomm``` is missing so we downgrade it:
+
+    pacman -S libs/bluez-utils-5.31-1-x86_64.pkg.tar.xz
+
+Activate the module:
+
+    modprobe btusb
+
+Add user to group and logout for changes to take effect:
+
+    sudo gpasswd --add <user> lp
+
+Start the service:
+
+    systemctl start bluetooth
+
+Pair the device using ```bluetoothctl``` where ```<dev>`` its mac address:
+
+    power on
+    agent on
+    scan on
+    ... wait ...
+    scan off
+    pair <dev>
+
+We are expecting serial so we can't simply connect to it. We have to emulate serial over bluetooth by binding the paired device to a serial port:
+
+    rfcomm bind 0 <dev>
+
+Finally, run the visualization:
+
+    ./run /dev/rfcomm0
+
+To reset everything:
+
+    # bash
+    rfcomm release 0
+
+    # bluetoothctl
+    remove <dev>
+    power off
+
 ## Authors
 
 Vsevolod (Seva) Ivanov - seva@tumahn.net
