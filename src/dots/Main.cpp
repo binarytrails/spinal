@@ -4,8 +4,8 @@
  * @copyright Copyright 2017 Vsevolod (Seva) Ivanov. All rights reserved.
  *
  * FIXME
- *  (1) Spine IMU sensors order shift
- *  (2) Fast serial communication
+ *  (1) Lines drawing
+ *  (2) Spline reconstruction
 */
 
 #include <stdio.h>
@@ -381,7 +381,6 @@ void print_spinal_segment(const uint16_t id, const std::string segment)
     }
 }
 
-// FIXME 2 fast communication: make robust and disregard too short results
 // exclusive substring without start and end
 std::string substr_ex(std::string start, std::string end, std::string str)
 {
@@ -435,19 +434,6 @@ bool parse_spinal_serial(const std::string data)
         fprintf(stderr, RED "ID or euler_angles aren't extracted\n" RESET);
         return false;
     }
-    /*
-    std::cout << "id: " << id <<
-                 " x: " << euler_angles.x <<
-                 " y: " << euler_angles.y <<
-                 " z: " << euler_angles.z << std::endl;
-    */
-
-    /* FIXME (1): TEST 1 (isolation attempt)
-     *  Cpp:
-     *      weird results with visual shifting
-     *  Arduino:
-     */
-    //if (id == 4) return true;
 
     // has previous rotation (initialized)
     if (vertices_r[sid] != ERROR_VEC3)
@@ -462,7 +448,7 @@ bool parse_spinal_serial(const std::string data)
         // apply spin
         vertices[sid] = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
 
-        //upload_to_gpu(); flickering if only upload
+        //upload_to_gpu(); // debug by syncronizing with serial
     }
     // else initialize
     vertices_r[sid] = euler_angles;
@@ -480,7 +466,6 @@ void read_spinal_serial()
         char byte_buff[512];
         int byte_num = 0;
 
-        //FIXME 1 nonblock mutex
         byte_num = sp_nonblocking_read(serial_p, byte_buff, 512);
         //byte_num = sp_blocking_read(serial_p, byte_buff, 512, SERIAL_TIMEOUT_MS);
 
@@ -490,14 +475,18 @@ void read_spinal_serial()
             serial_buff += c;
             //printf("Append to serial buffer: %s\n", serial_buff.c_str());
 
-            if (c != '$') continue;
+            if (c != '$')
+            {
+                continue;
+            }
+            else if (serial_buff.size() > 22)
+            {
+                // e.g. bno1x00.00y11.11z22.22$
+                parse_spinal_serial(serial_buff);
 
-            // FIXME 1 IMU sensors order shift
-            // i.e bno1x00.00y11.11z22.22$
-            parse_spinal_serial(serial_buff);
-
-            //compute_catmullrom_spline();
-
+                // TODO
+                //compute_catmullrom_spline();
+            }
             //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
             serial_buff = "";
             break;

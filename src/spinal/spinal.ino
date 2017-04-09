@@ -19,10 +19,10 @@ extern "C" {
 }
 
 #define TCAADDR 0x70
-#define TCA_START 3
+#define TCA_OFFSET 3
 #define NUMBER_OF_BNOS 5
 
-int BNO_SWITCH_RATE_MS = 100;
+int BNO_SWITCH_RATE_MS = 50;
 int BNO_SAMPLE_RATE_MS = 0;
 
 // unique id = bno id on i2c multiplex
@@ -33,7 +33,7 @@ Adafruit_BNO055 bno4 = Adafruit_BNO055(4);
 Adafruit_BNO055 bno3 = Adafruit_BNO055(3); // lowest
 
 // lowest to highest transmission ids order
-Adafruit_BNO055 *bno_ids[NUMBER_OF_BNOS] = {
+Adafruit_BNO055 *bno_sensors[NUMBER_OF_BNOS] = {
   &bno3,&bno4, &bno5, &bno6, &bno7};
 
 void tcaselect(uint8_t i)
@@ -78,11 +78,11 @@ void find_failed_bnos()
     for (uint8_t i = 0; i < NUMBER_OF_BNOS; i++)
     {
         sensor_t bno;
-        bno_ids[i]->getSensor(&bno);
+        bno_sensors[i]->getSensor(&bno);
         
         tcaselect(bno.sensor_id);
 
-        if (!bno_ids[i]->begin())
+        if (!bno_sensors[i]->begin())
             Serial.println(
               "ERROR: Cannot detect bno" + String(i + 3));
         //else
@@ -95,10 +95,10 @@ void bnos_details()
     for (uint8_t i = 0; i < NUMBER_OF_BNOS; i++)
     {
         sensor_t bno;
-        bno_ids[i]->getSensor(&bno);
+        bno_sensors[i]->getSensor(&bno);
         tcaselect(bno.sensor_id);
 
-        if (bno_ids[i]->begin())
+        if (bno_sensors[i]->begin())
           sensor_details(&bno);
     }
 }
@@ -119,46 +119,40 @@ void sensor_details(sensor_t *sensor)
 void setup(void)
 {
     Serial.begin(9600);
-    
     find_bnos();
     Serial.println();
     find_failed_bnos();
-    
 }
 
 void loop(void)
 {
-    sensor_t bno;
-    sensors_event_t event;
-    
     for (int i = 0; i < NUMBER_OF_BNOS; i++)
     {
-        bno_ids[i]->getSensor(&bno);
-        bno_ids[i]->getEvent(&event);
-        
-        tcaselect(bno.sensor_id);
+        // select bno on the tca multiplexer
+        tcaselect(i + TCA_OFFSET);
 
-        char byte_buff[512];
-        String x = "x",
-               y = "y",
-               z = "z";
-        
-        /* double -> char conversion
+        // lowest id == 0
+        String id = String(i, DEC),
+                x = "x", y = "y", z = "z";
+
+        imu::Vector<3> euler = bno_sensors[i]->getVector(
+            Adafruit_BNO055::VECTOR_EULER
+        );
+        /* dtostrf:
+         *    double -> char conversion
          *      with width of 2 and
          *      a precision of 4 (number of digits after the dicimal sign)
         */
-        x.concat(dtostrf(event.orientation.x, 2, 4, byte_buff));
-        y.concat(dtostrf(event.orientation.y, 2, 4, byte_buff));
-        z.concat(dtostrf(event.orientation.z, 2, 4, byte_buff));
+        char byte_buff[512];
 
-        String segment = "bno" + String(i, DEC)
-                       + x + y + z + "end" +
-                       String(i, DEC) + "$\n";
+        x.concat(dtostrf(euler.x(), 2, 4, byte_buff));
+        y.concat(dtostrf(euler.y(), 2, 4, byte_buff));
+        z.concat(dtostrf(euler.z(), 2, 4, byte_buff));
 
-        Serial.write(&segment[0]);
+        String segment = "bno" + id + x + y + z + "end" + id + "$\n";
+        Serial.write(segment.c_str());
 
         delay(BNO_SWITCH_RATE_MS);
     }
- 
     delay(BNO_SAMPLE_RATE_MS);
 }
