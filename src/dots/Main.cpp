@@ -32,6 +32,7 @@
 #define RESET   "\x1b[0m"
 
 const glm::vec3 ERROR_VEC3 = glm::vec3(-1, -1, -1);
+const std::vector<glm::vec3> ERROR_VEC(5, ERROR_VEC3);
 
 Window* window;
 Shader* shader;
@@ -59,18 +60,18 @@ struct sp_port *serial_p;
 const char* serial_url = "/dev/ttyUSB0";
 //unsigned int SERIAL_TIMEOUT_MS = 3000;
 
-bool compute_catmullrom_spline()
+std::vector<glm::vec3> compute_catmullrom_spline()
 {
     if (vertices_r.size() < 5)
-        return false;
+        return ERROR_VEC;
 
-    std::vector<glm::vec3> vbuffer1 = vertices_r;
+    std::vector<glm::vec3> vbuffer1 = vertices;
 
     if (vbuffer1.size() < 4)
     {
         printf("A minimum of 4 points is requiered "
                "to generate a Catmull-Rom Spline.\n");
-        return false;
+        return ERROR_VEC;
     }
 
     printf("Generating Catmull-Rom Spline..\n");
@@ -88,9 +89,9 @@ bool compute_catmullrom_spline()
     float step = 1.0f / tmax;
 
     // add artificial before first
-    vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
+    //vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
     // add artificial after last
-    vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
+    //vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
 
     std::vector<glm::vec3> vbuffer2;
 
@@ -123,10 +124,11 @@ bool compute_catmullrom_spline()
         }
     }
 
-    vertices.clear();
-    vertices = vbuffer2;
+    // add back end points
+    vbuffer2.insert(vbuffer2.begin(), vertices[0]);
+    vbuffer2.push_back(vertices[vertices.size() - 1]);
 
-    return true;
+    return vbuffer2;
 }
 
 void rotate_model(const glm::vec3 spin)
@@ -491,10 +493,19 @@ void read_spinal_serial()
                 // e.g. bno1x00.00y11.11z22.22$
                 parse_spinal_serial(serial_buff);
 
-                // TODO
-                //compute_catmullrom_spline();
+                // TODO explain logic
+                //
+                // Backup IMU sensor points
+                std::vector<glm::vec3> vbuffer = vertices;
+
+                std::vector<glm::vec3> spline = compute_catmullrom_spline();
+
+                vertices = spline;
+
                 gen_vertices_i();
                 upload_to_gpu();
+
+                vertices = vbuffer;
             }
             //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
             serial_buff = "";
