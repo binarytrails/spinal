@@ -10,6 +10,6 @@ out vec4 color;
 
 void main()
 {
-    vec3 c1 = vec3(255, 255, 255);
+    vec3 c1 = vec3(0, 0, 0);
     color = vec4(c1, 1.0f);
 }

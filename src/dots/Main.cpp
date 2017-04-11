@@ -53,12 +53,12 @@ std::vector<glm::vec3> vertices_r(5, ERROR_VEC3);
 std::string data_f   = "data/five_y";
 GLfloat rotate_angle = 1.0f / 20.0f;
 GLenum render_m      = GL_POINTS;
+glm::vec4 BG_COLOR(255, 255, 255, 0);
 
 std::string serial_buff = "";
 struct sp_port *serial_p;
-// can be overwritten with arg1 e.g. ./run.sh /dev/ttyUSB1
 const char* serial_url = "/dev/ttyUSB0";
-unsigned int SERIAL_TIMEOUT_MS = 3000;
+//unsigned int SERIAL_TIMEOUT_MS = 3000;
 
 bool compute_catmullrom_spline()
 {
@@ -555,7 +555,7 @@ void draw_loop()
         glfwPollEvents();
 
         // clear the colorbuffer
-        glClearColor(0, 0, 0, 0); // background color
+        glClearColor(BG_COLOR.x, BG_COLOR.y, BG_COLOR.z, BG_COLOR.z);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
