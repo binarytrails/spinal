@@ -4,8 +4,7 @@
  * @copyright Copyright 2017 Vsevolod (Seva) Ivanov. All rights reserved.
  *
  * FIXME
- *  (1) Lines drawing
- *  (2) Spline reconstruction
+ *  (1) Spline reconstruction
 */
 
 #include <stdio.h>
@@ -172,15 +171,23 @@ void upload_to_gpu()
 {
     // vertices
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
         glBufferData(GL_ARRAY_BUFFER,
                      sizeof(glm::vec3) * vertices.size(),
                      &vertices[0], GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // indices
-    glBindVertexArray(vao);
-        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
-    glBindVertexArray(0);
+        // indices
+        glBindVertexArray(vao);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                         sizeof(vertices_i[0]) * vertices_i.size(),
+                         &vertices_i[0],
+                         GL_STREAM_DRAW);
+        // unbind vao
+        glBindVertexArray(0);
+
+    // unbind vbo
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 // callbacks {
@@ -486,6 +493,8 @@ void read_spinal_serial()
 
                 // TODO
                 //compute_catmullrom_spline();
+                gen_vertices_i();
+                upload_to_gpu();
             }
             //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
             serial_buff = "";
@@ -511,7 +520,7 @@ void init_buffers()
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(vertices_i) * vertices_i.size(),
+                 sizeof(vertices_i[0]) * vertices_i.size(),
                  &vertices_i[0],
                  GL_STREAM_DRAW);
 
@@ -546,6 +555,10 @@ void render()
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glBindVertexArray(vao);
+        glDrawElements(render_m, vertices_i.size(), GL_UNSIGNED_SHORT, 0);
+    glBindVertexArray(0);
 }
 
 void draw_loop()
@@ -561,7 +574,6 @@ void draw_loop()
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         read_spinal_serial();
-        upload_to_gpu();
         render();
 
         glfwSwapBuffers(window->get());
