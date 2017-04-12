@@ -2,9 +2,6 @@
  * @file
  * @author Vsevolod (Seva) Ivanov
  * @copyright Copyright 2017 Vsevolod (Seva) Ivanov. All rights reserved.
- *
- * FIXME
- *  (1) Spline reconstruction
 */
 
 #include <stdio.h>
@@ -60,6 +57,9 @@ struct sp_port *serial_p;
 const char* serial_url = "/dev/ttyUSB0";
 //unsigned int SERIAL_TIMEOUT_MS = 3000;
 
+bool GENERATE_SPINE = false;
+const bool VERBOSE_DEBUG = false;
+
 std::vector<glm::vec3> compute_catmullrom_spline()
 {
     if (vertices_r.size() < 5)
@@ -74,7 +74,8 @@ std::vector<glm::vec3> compute_catmullrom_spline()
         return ERROR_VEC;
     }
 
-    printf("Generating Catmull-Rom Spline..\n");
+    if (VERBOSE_DEBUG)
+        printf("Generating Catmull-Rom Spline..\n");
 
     GLfloat s = 0.5f;
 
@@ -88,10 +89,9 @@ std::vector<glm::vec3> compute_catmullrom_spline()
     float tmax = 10.0f;
     float step = 1.0f / tmax;
 
-    // add artificial before first
-    //vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
-    // add artificial after last
-    //vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
+    // add artificial points before first and after last
+    vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
+    vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
 
     std::vector<glm::vec3> vbuffer2;
 
@@ -125,8 +125,8 @@ std::vector<glm::vec3> compute_catmullrom_spline()
     }
 
     // add back end points
-    vbuffer2.insert(vbuffer2.begin(), vertices[0]);
-    vbuffer2.push_back(vertices[vertices.size() - 1]);
+    //vbuffer2.insert(vbuffer2.begin(), vertices[0]);
+    //vbuffer2.push_back(vertices[vertices.size() - 1]);
 
     return vbuffer2;
 }
@@ -223,6 +223,10 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
                 render_m = GL_LINES;
                 gen_vertices_i();
                 upload_to_gpu();
+                break;
+
+            case GLFW_KEY_S:
+                GENERATE_SPINE = GENERATE_SPINE ? false : true;
                 break;
         }
     }
@@ -403,8 +407,10 @@ std::string substr_ex(std::string start, std::string end, std::string str)
     }
     catch (const std::out_of_range& e)
     {
-        fprintf(stderr, RED "Exception std::out_of_range in substr_ex(..)\n"
-                            "Returning '%s'\n" RESET, r.c_str());
+        if (VERBOSE_DEBUG)
+            fprintf(stderr, RED
+                    "Exception std::out_of_range in substr_ex(..)\n"
+                    "Returning '%s'\n" RESET, r.c_str());
     }
     return r;
 }
@@ -465,6 +471,22 @@ bool parse_spinal_serial(const std::string data)
     return true;
 }
 
+// Currently, it supports only the artificial Catmull-Rom spline
+void generate_spine()
+{
+    // Backup IMU sensor points
+    std::vector<glm::vec3> vbuffer = vertices;
+
+    std::vector<glm::vec3> spline = compute_catmullrom_spline();
+
+    vertices = spline;
+    gen_vertices_i();
+    upload_to_gpu();
+
+    // set back to original IMU sensor points
+    vertices = vbuffer;
+}
+
 void read_spinal_serial()
 {
     int bytes_waiting = sp_input_waiting(serial_p);
@@ -493,19 +515,8 @@ void read_spinal_serial()
                 // e.g. bno1x00.00y11.11z22.22$
                 parse_spinal_serial(serial_buff);
 
-                // TODO explain logic
-                //
-                // Backup IMU sensor points
-                std::vector<glm::vec3> vbuffer = vertices;
-
-                std::vector<glm::vec3> spline = compute_catmullrom_spline();
-
-                vertices = spline;
-
-                gen_vertices_i();
-                upload_to_gpu();
-
-                vertices = vbuffer;
+                if (GENERATE_SPINE)
+                    generate_spine();
             }
             //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
             serial_buff = "";
