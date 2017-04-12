@@ -60,6 +60,7 @@ const char* serial_url = "/dev/ttyUSB0";
 bool GENERATE_SPINE = false;
 const bool VERBOSE_DEBUG = false;
 
+// FIXME slight shift to bottom on each generation
 std::vector<glm::vec3> compute_catmullrom_spline()
 {
     if (vertices_r.size() < 5)
@@ -89,6 +90,7 @@ std::vector<glm::vec3> compute_catmullrom_spline()
     float tmax = 10.0f;
     float step = 1.0f / tmax;
 
+    // FIXME probably the step here is the cause of slight bottom shifting
     // add artificial points before first and after last
     vbuffer1.insert(vbuffer1.begin(), vbuffer1.at(0) - step);
     vbuffer1.push_back(vbuffer1.at(vbuffer1.size()-1) + step);
@@ -517,6 +519,11 @@ void read_spinal_serial()
 
                 if (GENERATE_SPINE)
                     generate_spine();
+                else
+                {
+                    gen_vertices_i();
+                    upload_to_gpu();
+                }
             }
             //printf("Flushing serial buffer: %s\n", serial_buff.c_str());
             serial_buff = "";
