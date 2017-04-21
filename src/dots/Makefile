@@ -10,7 +10,7 @@ CXXFLAGS=-std=c++11 -g -Wall -Wextra -Wfatal-errors -pedantic \
 GLFW_ARCH=-lglfw
 GLFW_LINUX=-lglfw3
 
-CXX_FILES=*.cpp
+CXX_FILES=Window.cpp Shader.cpp Camera.cpp Main.cpp
 
 all:
 	mkdir -p build
