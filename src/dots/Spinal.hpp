@@ -28,51 +28,49 @@
 #define CYAN    "\x1b[36m"
 #define RESET   "\x1b[0m"
 
-bool parse_spinal_serial(const std::string data)
-
 class Spinal
 {
     public:
         Spinal();
+        ~Spinal();
 
-        draw();
+        void draw();
 
     private:
-        ~Spinal()
+        void init_glfw();
+        void init_glew();
+        void init_opengl();
+        void init_buffers();
+        void init_bno_points();
+        void init_serial();
 
-        init_glfw();
-        init_glew();
-        init_opengl();
-        init_buffers();
-        init_bno_points();
-        init_serial();
+        void upload();
 
-        upload();
+        //! Coordinates system
+        void upload_mvp();
+        void rotate_model(const glm::vec3 spin);
+        glm::vec3 rotate_point(glm::vec3 point, const glm::vec3 spin);
 
-        // coords system
-        upload_mvp();
-        void rotate_model(const glm::vec3 spin)
-        glm::vec3 rotate_point(glm::vec3 point, const glm::vec3 spin)
-
-        read_serial();
-        parse_serial();
-        // exclusive substring without start and end
-        std::string substr_segment(std::string start, std::string end, std::string str)
-        print_segment(const uint8_t id, const char* segment);
+        void read_serial();
+        void parse_serial();
+        //! Exclusive substring without start & end
+        std::string substr_segment(std::string start,
+                                   std::string end, std::string str);
+        void print_segment(const uint8_t id, const char* segment);
 
         void find_serial_ports();
         const char* first_serial_port();
 
+        void gen_spine();
         void gen_vertices_i();
-        generate_spine();
-        glm::mat4 euler_angles(const glm::vec3 spin);
+        glm::mat4 gen_euler_angles(const glm::vec3 spin);
         // FIXME slight shift to bottom on each generation
-        std::vector<glm::vec3> catmullrom_spline()
+        std::vector<glm::vec3> gen_catmullrom_spline();
 
         // attributes
 
-        const glm::vec3 ERROR_VEC3 = glm::vec3(-1, -1, -1);
-        const std::vector<glm::vec3> ERROR_VEC(5, ERROR_VEC3);
+        const glm::vec3 ERROR_VEC3 = glm::vec3 (-1, -1, -1);
+        const std::vector<glm::vec3> ERROR_VEC;// (5, ERROR_VEC3);
 
         Window* window;
         Shader* shader;
@@ -88,24 +86,48 @@ class Spinal
         std::vector<glm::vec3> vertices;
         std::vector<GLushort>  vertices_i;
         // x == roll; y == pitch; z == yaw
-        std::vector<glm::vec3> vertices_r(5, ERROR_VEC3);
+        std::vector<glm::vec3> vertices_r; //(5, ERROR_VEC3);
 
         GLfloat rotate_angle = 1.0f / 20.0f;
-        GLenum render_m      = GL_POINTS;
-        glm::vec4 BG_COLOR(255, 255, 255, 0);
+        GLenum render_m = GL_POINTS;
+        glm::vec4 BG_COLOR = glm::vec4 (255, 255, 255, 0);
 
-        std::string serial_buff = "";
+        std::string serial_buff;
         struct sp_port *serial_p;
-        const char* serial_url = "/dev/ttyUSB0";
+        const char* serial_url;
 
-        bool GENERATE_SPINE = false;
-        const bool VERBOSE_DEBUG = false;
+        bool GENERATE_SPINE;
+        const bool VERBOSE_DEBUG;
 };
+
+//! GLFW Window context to allow the usage of class instances in callbacks
+struct CallbackContext
+{
+    Spinal* spinal;
+};
+
+//! Returning a CallbackContext attached to a GLFW window
+static CallbackContext* getWindowContext(GLFWwindow* w)
+{
+    return static_cast<CallbackContext*>(glfwGetWindowUserPointer(w));
+}
+
+static CallbackContext callbackContext;
 
 // callbacks
 
+//! GLFW window framebuffer callback
 static void framebuffer_size_cb(GLFWwindow* w, int width, int height)
+{
+    CallbackContext* cbcPtr = getWindowContext(w);
+}
 
 static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
+{
+    CallbackContext* cbcPtr = getWindowContext(w);
+}
 
 static void mouse_scroll_cb(GLFWwindow *w, double xoffset, double yoffset)
+{
+    CallbackContext* cbcPtr = getWindowContext(w);
+}
