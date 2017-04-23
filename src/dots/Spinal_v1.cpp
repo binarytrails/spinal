@@ -227,7 +227,7 @@ static void key_cb(GLFWwindow* w, int key, int scancode, int action, int mode)
                 upload_to_gpu();
                 break;
 
-            case GLFW_KEY_S:
+            case GLFW_KEY_G:
                 GENERATE_SPINE = GENERATE_SPINE ? false : true;
                 break;
         }

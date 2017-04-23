@@ -31,7 +31,7 @@ Real-time OpenGL visualization
     l           display lines
     p           display points
     
-    s           toggle spine reconstruction
+    g           generate spine
 
 ### Setup
 
