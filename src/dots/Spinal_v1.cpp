@@ -8,6 +8,8 @@
 #include <iostream>
 #include <vector>
 
+#include <GL/glew.h>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -57,7 +59,7 @@ struct sp_port *serial_p;
 const char* serial_url = "/dev/ttyUSB0";
 //unsigned int SERIAL_TIMEOUT_MS = 3000;
 
-bool GENERATE_SPINE = false;
+bool GENERATE_SPINE = true;
 const bool VERBOSE_DEBUG = false;
 
 // FIXME slight shift to bottom on each generation
@@ -567,6 +569,9 @@ void init_buffers()
 void render()
 {
     view = glm::translate(camera->view(), glm::vec3(0.0f, 0.0f, -2.0f));
+
+    // continious rotation around y
+    model = glm::rotate(model, 0.005f, glm::vec3(0, 1, 0));
 
     projection = glm::perspective(
         45.0f,

@@ -16,5 +16,5 @@ void main()
     vec3 colors = vec3(pos.x, pos.y, pos.z);
     vec3 greys = vec3(1) * pos.y;
     
-    color = vec4(greys, opacity);
+    color = vec4(black, opacity);
 }
