@@ -10,6 +10,11 @@ out vec4 color;
 
 void main()
 {
-    vec3 c1 = vec3(0, 0, 0);
-    color = vec4(c1, 1.0f);
+    float opacity = 1;
+
+    vec3 black = vec3(0);
+    vec3 colors = vec3(pos.x, pos.y, pos.z);
+    vec3 greys = vec3(1) * pos.y;
+    
+    color = vec4(greys, opacity);
 }
