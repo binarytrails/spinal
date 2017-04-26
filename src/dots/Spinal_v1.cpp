@@ -409,11 +409,11 @@ std::string substr_ex(std::string start, std::string end, std::string str)
 
         r = str.substr(first + start.length(), last - first - start.length());
     }
-    catch (const std::out_of_range& e)
+    catch (const std::exception& e)
     {
         if (VERBOSE_DEBUG)
             fprintf(stderr, RED
-                    "Exception std::out_of_range in substr_ex(..)\n"
+                    "Exception std::exception in substr_ex(..)\n"
                     "Returning '%s'\n" RESET, r.c_str());
     }
     return r;
@@ -430,7 +430,7 @@ bool parse_spinal_serial(const std::string data)
         sid = std::stoi(substr_ex("bno", "x", data), nullptr, 10);
         eid = std::stoi(substr_ex("end", "$", data), nullptr, 10);
     }
-    catch (const std::invalid_argument& e)
+    catch (const std::exception& e)
     {
         return false;
     }
