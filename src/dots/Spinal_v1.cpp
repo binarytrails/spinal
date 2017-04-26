@@ -459,13 +459,15 @@ bool parse_spinal_serial(const std::string data)
     {
         print_spinal_segment(sid, data);
 
+        // TODO enhance to take + - into account
         // spin = current - last
         glm::vec3 spin = euler_angles - vertices_r[sid];
 
         glm::mat4 euler_rotation = compute_euler_angles(spin);
 
         // apply spin
-        vertices[sid] = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
+        glm::vec4 p_new = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
+        vertices[sid] = glm::vec3(p_new);
 
         //upload_to_gpu(); // debug by syncronizing with serial
     }
