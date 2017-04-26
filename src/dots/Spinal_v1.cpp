@@ -624,11 +624,11 @@ int main(int argc, char *argv[])
     // init
     camera = new Camera();
     window = new Window(800, 800, "Spinal");
-
+/*
     glfwSetKeyCallback(window->get(), key_cb);
     glfwSetFramebufferSizeCallback(window->get(), framebuffer_size_cb);
     glfwSetScrollCallback(window->get(), mouse_scroll_cb);
-
+*/
     glewExperimental = GL_TRUE;
     glewInit();
 

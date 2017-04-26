@@ -1,1 +1,4 @@
-sudo apt-get install mesa-utils libglew-dev libglm-dev libglfw-dev libserialport-dev
+sudo apt-get install mesa-utils \
+    libxrandr-dev libxi-dev \
+    libglew-dev libglm-dev libglfw-dev \
+    libserialport-dev
