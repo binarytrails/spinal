@@ -1,4 +1,5 @@
 sudo apt-get install mesa-utils \
     libxrandr-dev libxi-dev \
     libglew-dev libglm-dev libglfw-dev \
-    libserialport-dev
+    libserialport-dev \
+    build-essential bluez-tools
