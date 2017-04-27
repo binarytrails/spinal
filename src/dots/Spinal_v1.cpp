@@ -277,6 +277,12 @@ static void mouse_scroll_cb(GLFWwindow *w, double xoffset, double yoffset)
     else if (yoffset < 0)   camera->move_backward();
 }
 
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+        printf("TODO right click reset\n");
+}
+
 // } callbacks
 
 bool load_data_file()
@@ -461,11 +467,22 @@ bool parse_spinal_serial(const std::string data)
 
         // spin = current - last
         glm::vec3 spin = euler_angles - vertices_r[sid];
-
         glm::mat4 euler_rotation = compute_euler_angles(spin);
-
         // apply spin
         vertices[sid] = glm::vec4(vertices[sid], 0.0f) * euler_rotation;
+
+/*
+        //glm::vec3 p = vertices_r[sid];
+        //glm::vec3 np;
+
+        // roll
+        np.x = atan2(p.y, p.z) * 180 / M_PI;
+        // pitch
+        np.y = atan2(p.x * -1, sqrt(p.y*p.y + p.z * p.z)) * 180 / M_PI;
+        np.z = 0;
+        // apply spin
+        vertices[sid] = np;
+*/
 
         //upload_to_gpu(); // debug by syncronizing with serial
     }
@@ -626,6 +643,7 @@ int main(int argc, char *argv[])
     glfwSetKeyCallback(window->get(), key_cb);
     glfwSetFramebufferSizeCallback(window->get(), framebuffer_size_cb);
     glfwSetScrollCallback(window->get(), mouse_scroll_cb);
+    glfwSetMouseButtonCallback(window->get(), mouse_button_callback);
 
     glewExperimental = GL_TRUE;
     glewInit();
